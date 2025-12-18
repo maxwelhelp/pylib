@@ -54,6 +54,8 @@ from .sync import (
     sync_fft,
     sync_dct,
     get_unified_features,
+    get_sync,
+    clear_sync_cache,
 )
 
 # Sequence
@@ -86,6 +88,7 @@ __all__ = [
     
     # Sync Lifting
     'SyncLifting', 'sync_fft', 'sync_dct', 'get_unified_features',
+    'get_sync', 'clear_sync_cache',
     
     # Sequence
     'kmer_frequencies', 'kmer_spectrum', 'gc_content',
