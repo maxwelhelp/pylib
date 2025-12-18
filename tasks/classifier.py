@@ -11,9 +11,9 @@ from dataclasses import dataclass
 
 # Универсальные импорты
 try:
-    from ..core import centroid, d_geo
+    from ..core import centroid, d_geo, d_geo_batch
 except ImportError:
-    from core import centroid, d_geo
+    from core import centroid, d_geo, d_geo_batch
 
 
 @dataclass
@@ -60,29 +60,55 @@ class Classifier:
         return self
     
     def predict(self, shapes: NDArray) -> List[ClassificationResult]:
-        """Классификация по ближайшему центроиду."""
+        """Классификация по ближайшему центроиду (векторизовано)."""
         if not self._is_fitted:
             raise RuntimeError("Classifier not fitted. Call fit() first.")
-        
+
         shapes = np.asarray(shapes)
         if shapes.ndim == 1:
             shapes = shapes.reshape(1, -1)
-        
+
+        # Предвычисляем расстояния до всех центроидов батчем
+        # distance_matrix[i, j] = расстояние от shapes[i] до centroids[j]
+        centroid_array = np.array([self.centroids[cls] for cls in self.classes])
+        # [N, num_classes]
+        all_distances = np.dot(shapes, centroid_array.T)
+        all_distances = np.clip(all_distances, -1.0, 1.0)
+        all_distances = np.arccos(all_distances)
+
         results = []
-        for shape in shapes:
-            distances = {cls: d_geo(shape, c) for cls, c in self.centroids.items()}
+        for i, shape in enumerate(shapes):
+            distances = {cls: float(all_distances[i, j]) for j, cls in enumerate(self.classes)}
             predicted = min(distances, key=distances.get)
-            
+
             sorted_dists = sorted(distances.values())
             confidence = sorted_dists[1] - sorted_dists[0] if len(sorted_dists) >= 2 else float('inf')
-            
+
             results.append(ClassificationResult(
                 predicted=predicted,
-                distances={k: float(v) for k, v in distances.items()},
+                distances=distances,
                 confidence=float(confidence),
             ))
-        
+
         return results
+
+    def predict_labels(self, shapes: NDArray) -> List[str]:
+        """Быстрое предсказание только меток (без confidence)."""
+        if not self._is_fitted:
+            raise RuntimeError("Classifier not fitted. Call fit() first.")
+
+        shapes = np.asarray(shapes)
+        if shapes.ndim == 1:
+            shapes = shapes.reshape(1, -1)
+
+        centroid_array = np.array([self.centroids[cls] for cls in self.classes])
+        all_distances = np.dot(shapes, centroid_array.T)
+        all_distances = np.clip(all_distances, -1.0, 1.0)
+        all_distances = np.arccos(all_distances)
+
+        # Индексы минимальных расстояний
+        min_indices = np.argmin(all_distances, axis=1)
+        return [self.classes[i] for i in min_indices]
     
     def score(self, shapes: NDArray, labels: Union[NDArray, List]) -> float:
         """Accuracy."""

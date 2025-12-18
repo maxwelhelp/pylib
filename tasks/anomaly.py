@@ -11,9 +11,9 @@ from dataclasses import dataclass
 
 # Универсальные импорты
 try:
-    from ..core import centroid, d_geo
+    from ..core import centroid, d_geo, d_geo_batch
 except ImportError:
-    from core import centroid, d_geo
+    from core import centroid, d_geo, d_geo_batch
 
 
 @dataclass
@@ -61,8 +61,9 @@ class AnomalyDetector:
                 shapes = shapes[normal_idx]
         
         self.centroid = centroid(shapes)
-        
-        distances = np.array([d_geo(s, self.centroid) for s in shapes])
+
+        # Векторизованный расчёт расстояний
+        distances = d_geo_batch(shapes, self.centroid)
         
         self.mean_distance = float(np.mean(distances))
         self.std_distance = float(np.std(distances))
@@ -76,25 +77,45 @@ class AnomalyDetector:
         return self
     
     def predict(self, shapes: NDArray) -> List[AnomalyResult]:
-        """Детекция аномалий."""
+        """Детекция аномалий (векторизовано)."""
         if not self._is_fitted:
             raise RuntimeError("Detector not fitted. Call fit() first.")
-        
+
         shapes = np.asarray(shapes)
         if shapes.ndim == 1:
             shapes = shapes.reshape(1, -1)
-        
-        results = []
-        for shape in shapes:
-            d = d_geo(shape, self.centroid)
-            results.append(AnomalyResult(
-                distance=d,
-                distance_deg=np.degrees(d),
-                is_anomaly=d > self.threshold,
+
+        # Batch расчёт расстояний
+        distances = d_geo_batch(shapes, self.centroid)
+        is_anomaly = distances > self.threshold
+
+        return [
+            AnomalyResult(
+                distance=float(d),
+                distance_deg=float(np.degrees(d)),
+                is_anomaly=bool(a),
                 threshold=self.threshold,
-            ))
-        
-        return results
+            )
+            for d, a in zip(distances, is_anomaly)
+        ]
+
+    def predict_proba(self, shapes: NDArray) -> NDArray:
+        """
+        Вероятность аномалии (нормализованное расстояние).
+
+        Returns:
+            [N] массив значений [0, 1], где 1 = точно аномалия
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Detector not fitted. Call fit() first.")
+
+        shapes = np.asarray(shapes)
+        if shapes.ndim == 1:
+            shapes = shapes.reshape(1, -1)
+
+        distances = d_geo_batch(shapes, self.centroid)
+        # Нормализуем: 0 = centroid, 1 = threshold, >1 = аномалия
+        return distances / self.threshold
     
     def score(self, shapes: NDArray, labels: NDArray) -> Dict[str, float]:
         """Оценка качества."""

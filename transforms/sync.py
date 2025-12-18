@@ -12,7 +12,21 @@ Synchronous Lifting - КЛЮЧЕВОЙ МОДУЛЬ
 
 import numpy as np
 from numpy.typing import NDArray
-from typing import Dict, List, Callable, Optional, Any
+from typing import Dict, List, Callable, Optional, Any, Tuple
+from functools import lru_cache
+
+
+# Глобальный кэш для t_powers (избегает пересоздания для одинаковых N)
+@lru_cache(maxsize=16)
+def _get_time_axis(N: int) -> NDArray:
+    """Кэшированная временная ось [0, 1]"""
+    return np.linspace(0, 1, N)
+
+
+@lru_cache(maxsize=64)
+def _get_t_power(N: int, k: int) -> NDArray:
+    """Кэшированная степень временной оси t^k"""
+    return _get_time_axis(N) ** k
 
 
 class SyncLifting:
@@ -44,10 +58,11 @@ class SyncLifting:
         self._t_powers = None
     
     def _init_time(self, N: int):
-        """Инициализация временной оси"""
+        """Инициализация временной оси (использует глобальный кэш)"""
         if self._t is None or len(self._t) != N:
-            self._t = np.linspace(0, 1, N)
-            self._t_powers = {k: self._t ** k for k in self.moments}
+            self._t = _get_time_axis(N)
+            # Используем кэшированные степени
+            self._t_powers = {k: _get_t_power(N, k) for k in self.moments}
     
     def compute(self, signal: NDArray, transform: Callable) -> Dict[str, Any]:
         """

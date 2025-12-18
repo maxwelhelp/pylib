@@ -256,3 +256,36 @@ def distance_matrix(shapes: NDArray) -> NDArray:
     G = np.clip(G, -1.0, 1.0)
     # Геодезическое расстояние = arccos(dot product)
     return np.arccos(G)
+
+
+def d_geo_batch(shapes: NDArray, target: NDArray) -> NDArray:
+    """
+    Расстояния от множества shapes до одной точки (векторизовано)
+
+    Args:
+        shapes: [N, dim] - массив shapes
+        target: [dim] - целевая точка
+
+    Returns:
+        [N] - массив расстояний в радианах
+    """
+    # dot products: [N]
+    dots = np.dot(shapes, target)
+    dots = np.clip(dots, -1.0, 1.0)
+    return np.arccos(dots)
+
+
+def d_geo_pairwise(shapes1: NDArray, shapes2: NDArray) -> NDArray:
+    """
+    Попарные расстояния между двумя наборами shapes
+
+    Args:
+        shapes1: [N, dim]
+        shapes2: [M, dim]
+
+    Returns:
+        [N, M] матрица расстояний
+    """
+    G = np.dot(shapes1, shapes2.T)
+    G = np.clip(G, -1.0, 1.0)
+    return np.arccos(G)
