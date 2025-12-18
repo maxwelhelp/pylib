@@ -6,10 +6,11 @@ Classifier Task
 
 import numpy as np
 from numpy.typing import NDArray
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Any
 from dataclasses import dataclass
-import pickle
 from pathlib import Path
+
+from .base import BaseModel
 
 # Универсальные импорты
 try:
@@ -29,7 +30,7 @@ class ClassificationResult:
         return f"ClassificationResult('{self.predicted}', conf={self.confidence:.2f})"
 
 
-class Classifier:
+class Classifier(BaseModel):
     """
     Классификатор на основе расстояния до центроидов.
 
@@ -38,15 +39,27 @@ class Classifier:
         >>> classifier.fit(train_shapes, train_labels)
         >>> predictions = classifier.predict(test_shapes)
 
-        >>> # Сохранение и загрузка:
-        >>> classifier.save('model.pkl')
-        >>> classifier = Classifier.load('model.pkl')
+        >>> # Сохранение (безопасный JSON):
+        >>> classifier.save('model.json')
+        >>> classifier = Classifier.load('model.json')
     """
 
     def __init__(self):
+        super().__init__()
         self.centroids: Dict[str, NDArray] = {}
         self.classes: List[str] = []
-        self._is_fitted = False
+
+    def _get_state(self) -> Dict[str, Any]:
+        """Состояние для сериализации."""
+        return {
+            'centroids': self.centroids,
+            'classes': self.classes,
+        }
+
+    def _set_state(self, state: Dict[str, Any]) -> None:
+        """Восстановление из сериализации."""
+        self.centroids = state['centroids']
+        self.classes = state['classes']
     
     def fit(self, shapes: NDArray, labels: Union[NDArray, List]) -> 'Classifier':
         """Обучение: центроид каждого класса."""
@@ -67,8 +80,7 @@ class Classifier:
     
     def predict(self, shapes: NDArray) -> List[ClassificationResult]:
         """Классификация по ближайшему центроиду (векторизовано)."""
-        if not self._is_fitted:
-            raise RuntimeError("Classifier not fitted. Call fit() first.")
+        self._check_fitted()
 
         shapes = np.asarray(shapes)
         if shapes.ndim == 1:
@@ -100,8 +112,7 @@ class Classifier:
 
     def predict_labels(self, shapes: NDArray) -> List[str]:
         """Быстрое предсказание только меток (без confidence)."""
-        if not self._is_fitted:
-            raise RuntimeError("Classifier not fitted. Call fit() first.")
+        self._check_fitted()
 
         shapes = np.asarray(shapes)
         if shapes.ndim == 1:
@@ -124,30 +135,6 @@ class Classifier:
 
         correct = sum(1 for p, l in zip(predictions, labels) if p == l)
         return correct / len(labels) if len(labels) > 0 else 0.0
-
-    def save(self, path: Union[str, Path]) -> None:
-        """Сохранить модель в файл."""
-        if not self._is_fitted:
-            raise RuntimeError("Classifier not fitted. Nothing to save.")
-
-        data = {
-            'centroids': self.centroids,
-            'classes': self.classes,
-        }
-        with open(path, 'wb') as f:
-            pickle.dump(data, f)
-
-    @classmethod
-    def load(cls, path: Union[str, Path]) -> 'Classifier':
-        """Загрузить модель из файла."""
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-
-        classifier = cls()
-        classifier.centroids = data['centroids']
-        classifier.classes = data['classes']
-        classifier._is_fitted = True
-        return classifier
 
 
 def classify(train_shapes: NDArray, train_labels: Union[NDArray, List],

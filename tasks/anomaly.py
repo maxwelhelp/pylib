@@ -8,8 +8,9 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import List, Dict, Optional, Any, Union
 from dataclasses import dataclass
-import pickle
 from pathlib import Path
+
+from .base import BaseModel
 
 # Универсальные импорты
 try:
@@ -31,7 +32,7 @@ class AnomalyResult:
         return f"AnomalyResult({self.distance_deg:.1f}°, {status})"
 
 
-class AnomalyDetector:
+class AnomalyDetector(BaseModel):
     """
     Детектор аномалий на основе геометрического расстояния.
 
@@ -47,6 +48,10 @@ class AnomalyDetector:
 
         >>> # Или с contamination (5% аномалий):
         >>> detector = AnomalyDetector(contamination=0.05)
+
+        >>> # Сохранение (безопасный JSON):
+        >>> detector.save('model.json')
+        >>> detector = AnomalyDetector.load('model.json')
     """
 
     def __init__(self,
@@ -59,6 +64,7 @@ class AnomalyDetector:
             threshold_percentile: фиксированный персентиль (0-100)
             contamination: ожидаемая доля аномалий (0-1), авто-персентиль
         """
+        super().__init__()
         self.threshold_sigma = threshold_sigma
         self.threshold_percentile = threshold_percentile
         self.contamination = contamination
@@ -68,7 +74,28 @@ class AnomalyDetector:
         self.mean_distance = None
         self.std_distance = None
         self._distances_hist = None  # для диагностики
-        self._is_fitted = False
+
+    def _get_state(self) -> Dict[str, Any]:
+        """Состояние для сериализации."""
+        return {
+            'centroid': self.centroid,
+            'threshold': self.threshold,
+            'mean_distance': self.mean_distance,
+            'std_distance': self.std_distance,
+            'threshold_sigma': self.threshold_sigma,
+            'threshold_percentile': self.threshold_percentile,
+            'contamination': self.contamination,
+        }
+
+    def _set_state(self, state: Dict[str, Any]) -> None:
+        """Восстановление из сериализации."""
+        self.centroid = state['centroid']
+        self.threshold = state['threshold']
+        self.mean_distance = state['mean_distance']
+        self.std_distance = state['std_distance']
+        self.threshold_sigma = state.get('threshold_sigma', 2.0)
+        self.threshold_percentile = state.get('threshold_percentile')
+        self.contamination = state.get('contamination')
 
     def fit(self, shapes: NDArray, labels: Optional[NDArray] = None) -> 'AnomalyDetector':
         """Обучение на нормальных данных."""
@@ -103,8 +130,7 @@ class AnomalyDetector:
 
     def predict(self, shapes: NDArray) -> List[AnomalyResult]:
         """Детекция аномалий (векторизовано)."""
-        if not self._is_fitted:
-            raise RuntimeError("Detector not fitted. Call fit() first.")
+        self._check_fitted()
 
         shapes = np.asarray(shapes)
         if shapes.ndim == 1:
@@ -131,8 +157,7 @@ class AnomalyDetector:
         Returns:
             [N] массив значений [0, 1+], где 1 = на пороге, >1 = аномалия
         """
-        if not self._is_fitted:
-            raise RuntimeError("Detector not fitted. Call fit() first.")
+        self._check_fitted()
 
         shapes = np.asarray(shapes)
         if shapes.ndim == 1:
@@ -168,8 +193,7 @@ class AnomalyDetector:
 
     def get_stats(self) -> Dict[str, float]:
         """Статистика обученной модели."""
-        if not self._is_fitted:
-            raise RuntimeError("Detector not fitted.")
+        self._check_fitted()
         return {
             'threshold': self.threshold,
             'threshold_deg': np.degrees(self.threshold),
@@ -178,41 +202,6 @@ class AnomalyDetector:
             'std_distance': self.std_distance,
             'std_distance_deg': np.degrees(self.std_distance),
         }
-
-    def save(self, path: Union[str, Path]) -> None:
-        """Сохранить модель в файл."""
-        if not self._is_fitted:
-            raise RuntimeError("Detector not fitted. Nothing to save.")
-
-        data = {
-            'centroid': self.centroid,
-            'threshold': self.threshold,
-            'mean_distance': self.mean_distance,
-            'std_distance': self.std_distance,
-            'threshold_sigma': self.threshold_sigma,
-            'threshold_percentile': self.threshold_percentile,
-            'contamination': self.contamination,
-        }
-        with open(path, 'wb') as f:
-            pickle.dump(data, f)
-
-    @classmethod
-    def load(cls, path: Union[str, Path]) -> 'AnomalyDetector':
-        """Загрузить модель из файла."""
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-
-        detector = cls(
-            threshold_sigma=data.get('threshold_sigma', 2.0),
-            threshold_percentile=data.get('threshold_percentile'),
-            contamination=data.get('contamination'),
-        )
-        detector.centroid = data['centroid']
-        detector.threshold = data['threshold']
-        detector.mean_distance = data['mean_distance']
-        detector.std_distance = data['std_distance']
-        detector._is_fitted = True
-        return detector
 
 
 def detect_anomalies(shapes: NDArray,
