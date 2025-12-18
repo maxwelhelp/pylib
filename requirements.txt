@@ -1,0 +1,6 @@
+# Core dependencies
+numpy>=1.21.0
+scipy>=1.7.0
+
+# Optional: ECG data reading
+# wfdb>=4.0

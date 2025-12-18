@@ -242,19 +242,17 @@ def frechet_mean(shapes: NDArray) -> NDArray:
 
 def distance_matrix(shapes: NDArray) -> NDArray:
     """
-    Матрица попарных расстояний
-    
+    Матрица попарных расстояний (векторизованная)
+
     Args:
-        shapes: [N, dim]
-        
+        shapes: [N, dim] - массив нормализованных векторов
+
     Returns:
-        [N, N] матрица расстояний
+        [N, N] матрица расстояний в радианах
     """
-    n = len(shapes)
-    D = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i + 1, n):
-            d = d_geo(shapes[i], shapes[j])
-            D[i, j] = d
-            D[j, i] = d
-    return D
+    # Gram matrix: G[i,j] = <shapes[i], shapes[j]>
+    G = np.dot(shapes, shapes.T)
+    # Clamp для численной стабильности
+    G = np.clip(G, -1.0, 1.0)
+    # Геодезическое расстояние = arccos(dot product)
+    return np.arccos(G)
