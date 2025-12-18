@@ -187,66 +187,89 @@ class SyncLifting:
         return result
 
 
+# Кэш SyncLifting инстансов по moments
+_sync_cache: Dict[Tuple[int, ...], SyncLifting] = {}
+
+
+def get_sync(moments: List[int] = [0, 1, 2]) -> SyncLifting:
+    """
+    Получить кэшированный SyncLifting инстанс.
+
+    Избегает создания нового объекта при каждом вызове.
+
+    Examples:
+        >>> sync = get_sync([0, 1, 2])
+        >>> metrics = sync.compute(signal, np.fft.rfft)
+    """
+    key = tuple(moments)
+    if key not in _sync_cache:
+        _sync_cache[key] = SyncLifting(moments=list(moments))
+    return _sync_cache[key]
+
+
+def clear_sync_cache() -> None:
+    """Очистить кэш SyncLifting инстансов."""
+    _sync_cache.clear()
+
+
 def sync_fft(signal: NDArray, moments: List[int] = [0, 1, 2]) -> Dict[str, Any]:
     """
     Синхронный FFT — удобная обёртка
-    
+
     Examples:
         >>> metrics = sync_fft(signal)
         >>> tc = metrics['time_center']  # где энергия каждой частоты
     """
-    sync = SyncLifting(moments=moments)
-    return sync.compute(signal, np.fft.rfft)
+    return get_sync(moments).compute(signal, np.fft.rfft)
 
 
 def sync_dct(signal: NDArray, moments: List[int] = [0, 1, 2]) -> Dict[str, Any]:
     """Синхронный DCT"""
     from scipy.fftpack import dct
-    sync = SyncLifting(moments=moments)
-    return sync.compute(signal, lambda x: dct(x, type=2, norm='ortho'))
+    return get_sync(moments).compute(signal, lambda x: dct(x, type=2, norm='ortho'))
 
 
-def get_unified_features(signal: NDArray, 
+def get_unified_features(signal: NDArray,
                          transforms: List[str] = ['fft', 'dct'],
                          moments: List[int] = [0, 1, 2]) -> Dict[str, float]:
     """
     Унифицированный вектор фичей от нескольких преобразований.
-    
+
     Args:
         signal: входной сигнал
         transforms: список преобразований ['fft', 'dct', 'hilbert', 'teager']
         moments: моменты для sync lifting
-        
+
     Returns:
         Словарь {'{transform}_{metric}': value}
     """
     from scipy.fftpack import dct as scipy_dct
     from .analytic import hilbert, teager_energy, envelope
-    
-    sync = SyncLifting(moments=moments)
+
+    sync = get_sync(moments)  # используем кэшированный инстанс
     features = {}
-    
+
     for name in transforms:
         if name == 'fft':
             m = sync.dominant_metrics(signal, np.fft.rfft)
             features['fft_tc'] = m.get('tc', 0.5)
             features['fft_ts'] = m.get('ts', 0.0)
-            
+
         elif name == 'dct':
             m = sync.dominant_metrics(signal, lambda x: scipy_dct(x, type=2, norm='ortho'))
             features['dct_tc'] = m.get('tc', 0.5)
             features['dct_ts'] = m.get('ts', 0.0)
-            
+
         elif name == 'hilbert':
             env = envelope(signal)
             m = sync.compute_envelope_metrics(env)
             features['hil_tc'] = m['time_center']
             features['hil_ts'] = m['time_spread']
-            
+
         elif name == 'teager':
             teo = teager_energy(signal)
             m = sync.compute_envelope_metrics(teo)
             features['teo_tc'] = m['time_center']
             features['teo_ts'] = m['time_spread']
-    
+
     return features

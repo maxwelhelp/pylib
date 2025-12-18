@@ -8,6 +8,8 @@ import numpy as np
 from numpy.typing import NDArray
 from typing import List, Dict, Optional, Union
 from dataclasses import dataclass
+import pickle
+from pathlib import Path
 
 # Универсальные импорты
 try:
@@ -22,7 +24,7 @@ class ClassificationResult:
     predicted: str
     distances: Dict[str, float]
     confidence: float
-    
+
     def __repr__(self):
         return f"ClassificationResult('{self.predicted}', conf={self.confidence:.2f})"
 
@@ -30,13 +32,17 @@ class ClassificationResult:
 class Classifier:
     """
     Классификатор на основе расстояния до центроидов.
-    
+
     Examples:
         >>> classifier = Classifier()
         >>> classifier.fit(train_shapes, train_labels)
         >>> predictions = classifier.predict(test_shapes)
+
+        >>> # Сохранение и загрузка:
+        >>> classifier.save('model.pkl')
+        >>> classifier = Classifier.load('model.pkl')
     """
-    
+
     def __init__(self):
         self.centroids: Dict[str, NDArray] = {}
         self.classes: List[str] = []
@@ -115,9 +121,33 @@ class Classifier:
         results = self.predict(shapes)
         predictions = [r.predicted for r in results]
         labels = [str(l) for l in labels]
-        
+
         correct = sum(1 for p, l in zip(predictions, labels) if p == l)
         return correct / len(labels) if len(labels) > 0 else 0.0
+
+    def save(self, path: Union[str, Path]) -> None:
+        """Сохранить модель в файл."""
+        if not self._is_fitted:
+            raise RuntimeError("Classifier not fitted. Nothing to save.")
+
+        data = {
+            'centroids': self.centroids,
+            'classes': self.classes,
+        }
+        with open(path, 'wb') as f:
+            pickle.dump(data, f)
+
+    @classmethod
+    def load(cls, path: Union[str, Path]) -> 'Classifier':
+        """Загрузить модель из файла."""
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+
+        classifier = cls()
+        classifier.centroids = data['centroids']
+        classifier.classes = data['classes']
+        classifier._is_fitted = True
+        return classifier
 
 
 def classify(train_shapes: NDArray, train_labels: Union[NDArray, List],
