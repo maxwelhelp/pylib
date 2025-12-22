@@ -11,12 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .base import BaseModel
-
-# Универсальные импорты
-try:
-    from ..core import centroid, d_geo, d_geo_batch
-except ImportError:
-    from core import centroid, d_geo, d_geo_batch
+from .backend import get_backend
 
 
 @dataclass
@@ -106,10 +101,11 @@ class AnomalyDetector(BaseModel):
             if len(normal_idx) > 0:
                 shapes = shapes[normal_idx]
 
-        self.centroid = centroid(shapes)
+        backend = get_backend()
+        self.centroid = backend.centroid(shapes)
 
         # Векторизованный расчёт расстояний
-        distances = d_geo_batch(shapes, self.centroid)
+        distances = backend.d_geo_batch(shapes, self.centroid)
         self._distances_hist = distances  # сохраняем для диагностики
 
         self.mean_distance = float(np.mean(distances))
@@ -137,7 +133,8 @@ class AnomalyDetector(BaseModel):
             shapes = shapes.reshape(1, -1)
 
         # Batch расчёт расстояний
-        distances = d_geo_batch(shapes, self.centroid)
+        backend = get_backend()
+        distances = backend.d_geo_batch(shapes, self.centroid)
         is_anomaly = distances > self.threshold
 
         return [
@@ -163,7 +160,8 @@ class AnomalyDetector(BaseModel):
         if shapes.ndim == 1:
             shapes = shapes.reshape(1, -1)
 
-        distances = d_geo_batch(shapes, self.centroid)
+        backend = get_backend()
+        distances = backend.d_geo_batch(shapes, self.centroid)
         return distances / self.threshold
 
     def score(self, shapes: NDArray, labels: NDArray) -> Dict[str, float]:

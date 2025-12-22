@@ -11,12 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .base import BaseModel
-
-# Универсальные импорты
-try:
-    from ..core import centroid, d_geo, d_geo_batch
-except ImportError:
-    from core import centroid, d_geo, d_geo_batch
+from .backend import get_backend
 
 
 @dataclass
@@ -65,15 +60,16 @@ class Classifier(BaseModel):
         """Обучение: центроид каждого класса."""
         shapes = np.asarray(shapes)
         labels = np.asarray(labels)
-        
+
         self.classes = sorted(set(str(l) for l in labels))
         self.centroids = {}
-        
+
+        backend = get_backend()
         for cls in self.classes:
             idx = np.array([str(l) == cls for l in labels])
             class_shapes = shapes[idx]
             if len(class_shapes) > 0:
-                self.centroids[cls] = centroid(class_shapes)
+                self.centroids[cls] = backend.centroid(class_shapes)
         
         self._is_fitted = True
         return self
