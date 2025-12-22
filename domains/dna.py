@@ -10,10 +10,12 @@ from .base import BaseDomainAnalyzer
 # Универсальные импорты
 try:
     from ..transforms import kmer_frequencies, gc_content, sequence_complexity
-    from ..core import centroid, d_eff, d_geo
+    from ..core import d_eff  # d_eff локальная (не секретная)
+    from ..tasks.backend import get_backend
 except ImportError:
     from transforms import kmer_frequencies, gc_content, sequence_complexity
-    from core import centroid, d_eff, d_geo
+    from core import d_eff
+    from tasks.backend import get_backend
 
 
 class DNAAnalyzer(BaseDomainAnalyzer):
@@ -84,9 +86,10 @@ class DNAAnalyzer(BaseDomainAnalyzer):
         """Сравнение двух последовательностей"""
         shapes1 = self.process(seq1)
         shapes2 = self.process(seq2)
-        
-        c1 = centroid(shapes1) if len(shapes1) > 1 else shapes1[0]
-        c2 = centroid(shapes2) if len(shapes2) > 1 else shapes2[0]
-        
-        d = d_geo(c1, c2)
+
+        backend = get_backend()
+        c1 = backend.centroid(shapes1) if len(shapes1) > 1 else shapes1[0]
+        c2 = backend.centroid(shapes2) if len(shapes2) > 1 else shapes2[0]
+
+        d = backend.d_geo(c1, c2)
         return {'distance': float(d), 'distance_deg': float(np.degrees(d))}

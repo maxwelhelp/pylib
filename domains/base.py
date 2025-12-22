@@ -7,13 +7,13 @@ from numpy.typing import NDArray
 from typing import List, Dict, Optional, Any, Union
 from abc import ABC, abstractmethod
 
-# Универсальные импорты
+# Используем backend для переключения локальный/удалённый
 try:
-    from ..core import normalize
     from ..tasks import AnomalyDetector, Classifier
+    from ..tasks.backend import get_backend
 except ImportError:
-    from core import normalize
     from tasks import AnomalyDetector, Classifier
+    from tasks.backend import get_backend
 
 
 class BaseDomainAnalyzer(ABC):
@@ -49,7 +49,8 @@ class BaseDomainAnalyzer(ABC):
             arr = np.array(list(features.values()), dtype=np.float64)
         else:
             arr = np.asarray(features, dtype=np.float64).flatten()
-        return normalize(arr)
+        backend = get_backend()
+        return backend.normalize(arr.reshape(1, -1))[0]
     
     def process(self, data: Any) -> NDArray:
         """Полный pipeline: data → shapes"""

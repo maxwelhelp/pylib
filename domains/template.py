@@ -16,10 +16,12 @@ from .base import BaseDomainAnalyzer
 # Универсальные импорты
 try:
     from ..transforms import SyncLifting
-    from ..core import d_eff, centroid
+    from ..core import d_eff  # d_eff локальная (не секретная)
+    from ..tasks.backend import get_backend
 except ImportError:
     from transforms import SyncLifting
-    from core import d_eff, centroid
+    from core import d_eff
+    from tasks.backend import get_backend
 
 
 class TemplateDomainAnalyzer(BaseDomainAnalyzer):
