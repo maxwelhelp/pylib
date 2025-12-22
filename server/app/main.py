@@ -57,9 +57,9 @@ async def health():
 
 
 # Routes
-app.include_router(geometry.router, prefix="/v1", tags=["geometry"])
-app.include_router(sync.router, prefix="/v1", tags=["sync"])
-app.include_router(batch.router, prefix="/v1", tags=["batch"])
+app.include_router(geometry.router, prefix="/geometry", tags=["geometry"])
+app.include_router(sync.router, prefix="/sync", tags=["sync"])
+app.include_router(batch.router, tags=["batch"])
 
 
 # Usage info

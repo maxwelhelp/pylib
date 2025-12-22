@@ -103,6 +103,29 @@ def centroid(shapes: NDArray) -> NDArray:
     return normalize(mean)
 
 
+def d_eff(shapes: NDArray, threshold: float = 0.95) -> int:
+    """
+    Эффективная размерность через SVD.
+
+    d_eff = min{d : Σᵢ₌₁ᵈ σᵢ² ≥ threshold × Σᵢ σᵢ²}
+    """
+    shapes = np.asarray(shapes)
+    if shapes.ndim == 1:
+        return 1
+
+    # SVD
+    _, s, _ = np.linalg.svd(shapes, full_matrices=False)
+    s2 = s ** 2
+    total = s2.sum()
+
+    if total < 1e-10:
+        return 1
+
+    cumsum = np.cumsum(s2) / total
+    d = int(np.searchsorted(cumsum, threshold) + 1)
+    return min(d, len(s))
+
+
 def slerp(x: NDArray, y: NDArray, t: float) -> NDArray:
     """
     Spherical Linear Interpolation.

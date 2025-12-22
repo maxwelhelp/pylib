@@ -55,6 +55,17 @@ class CentroidResponse(BaseModel):
     count: int
 
 
+class DeffRequest(BaseModel):
+    """Запрос на расчёт эффективной размерности"""
+    shapes: List[List[float]]
+    threshold: float = Field(0.95, description="Порог объяснённой дисперсии")
+
+
+class DeffResponse(BaseModel):
+    d_eff: int
+    total_dims: int
+
+
 # ============================================================
 # Endpoints
 # ============================================================
@@ -120,4 +131,23 @@ async def centroid(
     return CentroidResponse(
         centroid=c.tolist(),
         count=len(shapes),
+    )
+
+
+@router.post("/d_eff", response_model=DeffResponse)
+async def d_eff_endpoint(
+    request: DeffRequest,
+    api_key: APIKey = Depends(get_api_key),
+):
+    """
+    Расчёт эффективной размерности через SVD.
+    """
+    await check_rate_limit(api_key)
+
+    shapes = np.array(request.shapes)
+    d = geo.d_eff(shapes, request.threshold)
+
+    return DeffResponse(
+        d_eff=d,
+        total_dims=shapes.shape[1] if len(shapes.shape) > 1 else 1,
     )

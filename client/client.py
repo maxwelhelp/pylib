@@ -234,6 +234,30 @@ class LiftingClient:
         response = self._request("POST", "/geometry/centroid", {"shapes": shapes})
         return np.array(response["centroid"])
 
+    def d_eff(
+        self,
+        shapes: Union[List, NDArray],
+        threshold: float = 0.95,
+    ) -> int:
+        """
+        Эффективная размерность через SVD.
+
+        Args:
+            shapes: [N, D] массив shapes
+            threshold: порог объяснённой дисперсии (0.95 = 95%)
+
+        Returns:
+            Эффективная размерность
+        """
+        if isinstance(shapes, np.ndarray):
+            shapes = shapes.tolist()
+
+        response = self._request("POST", "/geometry/d_eff", {
+            "shapes": shapes,
+            "threshold": threshold,
+        })
+        return response["d_eff"]
+
     # ============================================================
     # Sync Lifting API
     # ============================================================
@@ -299,10 +323,11 @@ class LiftingClient:
         if isinstance(signal, np.ndarray):
             signal = signal.tolist()
 
-        return self._request("POST", "/sync/features", {
+        response = self._request("POST", "/sync/features", {
             "signal": signal,
             "transforms": transforms,
         })
+        return response.get("features", response)
 
     # ============================================================
     # Batch API (эффективно!)

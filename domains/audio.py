@@ -10,10 +10,10 @@ from .base import BaseDomainAnalyzer
 # Универсальные импорты
 try:
     from ..transforms import SyncLifting
-    from ..core import d_eff
+    from ..tasks.backend import get_backend
 except ImportError:
     from transforms import SyncLifting
-    from core import d_eff
+    from tasks.backend import get_backend
 
 
 class AudioAnalyzer(BaseDomainAnalyzer):
@@ -69,7 +69,7 @@ class AudioAnalyzer(BaseDomainAnalyzer):
     def compute_d_eff(self, signal: NDArray) -> int:
         """d_eff для сигнала"""
         shapes = self.process(signal)
-        return d_eff(shapes)
+        return get_backend().d_eff(shapes)
 
 
 class TTSAnalyzer(AudioAnalyzer):

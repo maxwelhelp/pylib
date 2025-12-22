@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 
 
 class Backend(Protocol):
-    """Протокол backend для геометрических операций."""
+    """Протокол backend для геометрических и sync операций."""
 
     def normalize(self, data: NDArray) -> NDArray:
         """Нормализовать векторы → shapes"""
@@ -39,6 +39,22 @@ class Backend(Protocol):
 
     def centroid(self, shapes: NDArray) -> NDArray:
         """Центроид (среднее на сфере)"""
+        ...
+
+    def sync_compute(self, signal: NDArray, transform: str, moments: List[int]) -> Dict[str, Any]:
+        """SyncLifting compute"""
+        ...
+
+    def sync_dominant(self, signal: NDArray, transform: str) -> Dict[str, float]:
+        """SyncLifting dominant metrics"""
+        ...
+
+    def sync_features(self, signal: NDArray, transforms: List[str]) -> Dict[str, float]:
+        """Unified sync features"""
+        ...
+
+    def d_eff(self, shapes: NDArray, threshold: float) -> int:
+        """Effective dimensionality"""
         ...
 
 
@@ -85,6 +101,54 @@ class LocalBackend:
     def centroid(self, shapes: NDArray) -> NDArray:
         return self._get_core()['centroid'](shapes)
 
+    def sync_compute(self, signal: NDArray, transform: str = "fft", moments: List[int] = [0, 1, 2]) -> Dict[str, Any]:
+        """SyncLifting через локальный transforms"""
+        try:
+            from ..transforms.sync import SyncLifting
+        except ImportError:
+            from transforms.sync import SyncLifting
+
+        sync = SyncLifting(moments=moments)
+        if transform == "fft":
+            return sync.compute(signal, np.fft.rfft)
+        elif transform == "dct":
+            from scipy.fftpack import dct
+            return sync.compute(signal, lambda x: dct(x, type=2, norm='ortho'))
+        else:
+            return sync.compute(signal, np.fft.rfft)
+
+    def sync_dominant(self, signal: NDArray, transform: str = "fft") -> Dict[str, float]:
+        """Dominant metrics через локальный transforms"""
+        try:
+            from ..transforms.sync import SyncLifting
+        except ImportError:
+            from transforms.sync import SyncLifting
+
+        sync = SyncLifting(moments=[0, 1, 2])
+        if transform == "fft":
+            return sync.dominant_metrics(signal, np.fft.rfft)
+        elif transform == "dct":
+            from scipy.fftpack import dct
+            return sync.dominant_metrics(signal, lambda x: dct(x, type=2, norm='ortho'))
+        else:
+            return sync.dominant_metrics(signal, np.fft.rfft)
+
+    def sync_features(self, signal: NDArray, transforms: List[str] = ["fft", "dct"]) -> Dict[str, float]:
+        """Unified features через локальный transforms"""
+        try:
+            from ..transforms.sync import get_unified_features
+        except ImportError:
+            from transforms.sync import get_unified_features
+        return get_unified_features(signal, transforms)
+
+    def d_eff(self, shapes: NDArray, threshold: float = 0.95) -> int:
+        """Effective dimensionality через локальный core"""
+        try:
+            from ..core.metrics import d_eff
+        except ImportError:
+            from core.metrics import d_eff
+        return d_eff(shapes, threshold)
+
 
 class RemoteBackend:
     """
@@ -116,6 +180,22 @@ class RemoteBackend:
 
     def centroid(self, shapes: NDArray) -> NDArray:
         return self.client.centroid(shapes)
+
+    def sync_compute(self, signal: NDArray, transform: str = "fft", moments: List[int] = [0, 1, 2]) -> Dict[str, Any]:
+        """SyncLifting через API"""
+        return self.client.sync_compute(signal, transform, moments)
+
+    def sync_dominant(self, signal: NDArray, transform: str = "fft") -> Dict[str, float]:
+        """Dominant metrics через API"""
+        return self.client.sync_dominant(signal, transform)
+
+    def sync_features(self, signal: NDArray, transforms: List[str] = ["fft", "dct"]) -> Dict[str, float]:
+        """Unified features через API"""
+        return self.client.sync_features(signal, transforms)
+
+    def d_eff(self, shapes: NDArray, threshold: float = 0.95) -> int:
+        """d_eff через API"""
+        return self.client.d_eff(shapes, threshold)
 
 
 # ============================================================

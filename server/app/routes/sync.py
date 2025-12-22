@@ -59,7 +59,7 @@ class UnifiedFeaturesResponse(BaseModel):
 # Endpoints
 # ============================================================
 
-@router.post("/sync/compute", response_model=SyncComputeResponse)
+@router.post("/compute", response_model=SyncComputeResponse)
 async def sync_compute(
     request: SyncComputeRequest,
     api_key: APIKey = Depends(get_api_key),
@@ -92,7 +92,7 @@ async def sync_compute(
     return response
 
 
-@router.post("/sync/dominant", response_model=SyncDominantResponse)
+@router.post("/dominant", response_model=SyncDominantResponse)
 async def sync_dominant(
     request: SyncDominantRequest,
     api_key: APIKey = Depends(get_api_key),
@@ -118,7 +118,7 @@ async def sync_dominant(
     )
 
 
-@router.post("/sync/features", response_model=UnifiedFeaturesResponse)
+@router.post("/features", response_model=UnifiedFeaturesResponse)
 async def unified_features(
     request: UnifiedFeaturesRequest,
     api_key: APIKey = Depends(get_api_key),

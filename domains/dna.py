@@ -10,11 +10,9 @@ from .base import BaseDomainAnalyzer
 # Универсальные импорты
 try:
     from ..transforms import kmer_frequencies, gc_content, sequence_complexity
-    from ..core import d_eff  # d_eff локальная (не секретная)
     from ..tasks.backend import get_backend
 except ImportError:
     from transforms import kmer_frequencies, gc_content, sequence_complexity
-    from core import d_eff
     from tasks.backend import get_backend
 
 
@@ -79,7 +77,7 @@ class DNAAnalyzer(BaseDomainAnalyzer):
             'gc_content': gc_content(sequence),
             'complexity': sequence_complexity(sequence),
             'n_windows': len(shapes),
-            'd_eff': d_eff(shapes) if len(shapes) > 1 else shapes.shape[-1],
+            'd_eff': get_backend().d_eff(shapes) if len(shapes) > 1 else shapes.shape[-1],
         }
     
     def compare_sequences(self, seq1: str, seq2: str) -> Dict[str, float]:

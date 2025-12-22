@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     # API Keys (в production - из базы данных)
     # Формат: key1:name1,key2:name2
-    API_KEYS: str = "dev-key-12345:developer,test-key-67890:tester"
+    API_KEYS: str = "demo-key:demo,dev-key-12345:developer,test-key-67890:tester"
 
     # Rate limiting
     RATE_LIMIT_PER_MINUTE: int = 100  # Бесплатный лимит
